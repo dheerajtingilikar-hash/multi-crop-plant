@@ -1,12 +1,11 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, func
-from app.database import Base
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
 
-class PlantPrediction(Base):
-    __tablename__ = "plant_predictions"
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    plant_name = Column(String, index=True)
-    probability = Column(Float)
-    common_names = Column(String)
-    image_url = Column(String, nullable=True)  # optional if storing image path
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    username = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
