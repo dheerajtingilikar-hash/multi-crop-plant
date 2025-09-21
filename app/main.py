@@ -1,51 +1,42 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-import shutil
-import os
+import shutil, os, requests
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+PLANT_ID_API_KEY = os.getenv("PLANT_ID_API_KEY")
 
 app = FastAPI()
 
-# ✅ Allow only your frontend
+# ✅ Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://multi-crop-frontend.vercel.app"],  
+    allow_origins=["*"],  # You can replace "*" with your frontend domain for security
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.get("/")
-def root():
-    return {"message": "Backend is running!"}
-
+# -------------------
+# PREDICT ROUTE
+# -------------------
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    try:
-        # Save uploaded file temporarily
-        file_location = f"temp_{file.filename}"
-        with open(file_location, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+    if not PLANT_ID_API_KEY:
+        return {"error": "PLANT_ID_API_KEY not set in environment"}
 
-        # Dummy prediction (replace with ML model)
-        result = {"crop": "Wheat", "confidence": 0.92}
+    # Save uploaded image temporarily
+    temp_file = f"temp_{file.filename}"
+    with open(temp_file, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
 
-        # Remove temp file
-        os.remove(file_location)
+    # Call Plant.id API
+    url = "https://api.plant.id/v2/identify"
+    headers = {"Api-Key": PLANT_ID_API_KEY}
+    files = [("images", open(temp_file, "rb"))]
 
-        return JSONResponse(content=result)
+    response = requests.post(url, headers=headers, files=files, data={"organs": '["leaf"]'})
+    os.remove(temp_file)  # cleanup
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-from fastapi.middleware.cors import CORSMiddleware
-
-app = FastAPI()
-
-# Allow frontend domain
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://multi-crop-frontend.vercel.app"],  # frontend on Vercel
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    return response.json()
